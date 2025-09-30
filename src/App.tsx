@@ -70,8 +70,8 @@ function App() {
       <TopBar selectedType={facilityType} onTypeChange={setFacilityType} />
       <KakaoMap
         useCurrentLocation
-        center={{ lat: 35.2309931, lng: 129.0823062 }}
-        fallbackCenter={{ lat: 35.2309931, lng: 129.0823062 }}
+        center={{ lat: 35.205597, lng: 129.078478 }}
+        fallbackCenter={{ lat: 35.205597, lng: 129.078478 }}
         poiMarkers={displayPois}
         onBoundsChange={handleBoundsChange}
         onMarkerClick={handleMarkerClick}
