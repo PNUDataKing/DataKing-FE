@@ -41,7 +41,15 @@ function App() {
     if (fatherFilterEnabled) {
       return basePois.filter((poi) => {
         if ("details" in poi && poi.details) {
-          return poi.details.fatherAvailable === true;
+          // 기저귀교환대: diaperTableLocationList에 "MALE" 포함 여부 확인
+          if (facilityType === "diaper" && poi.category === "toilet") {
+            const locations = poi.details.diaperTableLocationList || [];
+            return locations.includes("MALE");
+          }
+          // 수유실: fatherAvailable 필드 확인
+          if (facilityType === "nursing" && poi.category === "nursery") {
+            return poi.details.fatherAvailable === true;
+          }
         }
         return false;
       });
