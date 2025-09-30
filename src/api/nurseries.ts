@@ -35,3 +35,29 @@ export async function fetchNurseriesByBounds(bounds: Bounds, signal?: AbortSigna
     })
     .filter((v): v is NurseryPoi => !!v);
 }
+
+export async function fetchNurseryDetail(id: string | number, signal?: AbortSignal): Promise<NurseryPoi> {
+  const url = new URL(`/api/nursing-rooms/${id}`, window.location.origin);
+
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal });
+  if (!res.ok) throw new Error(`Nursery detail API non-ok: ${res.status}`);
+
+  const r = await res.json();
+
+  const poi: NurseryPoi = {
+    id: r.id,
+    lat: r.lat,
+    lng: r.lng,
+    title: r.name ?? "수유실",
+    category: "nursery",
+    details: {
+      address: r.address,
+      location: r.location,
+      tel: r.tel,
+      fatherAvailable: r.fatherAvailable,
+      referenceDate: r.referenceDate,
+    },
+  };
+
+  return poi;
+}

@@ -38,3 +38,31 @@ export async function fetchToiletsByBounds(bounds: Bounds, signal?: AbortSignal)
     })
     .filter((v): v is ToiletPoi => !!v);
 }
+
+export async function fetchToiletDetail(id: string | number, signal?: AbortSignal): Promise<ToiletPoi> {
+  const url = new URL(`/api/toilets/${id}`, window.location.origin);
+
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal });
+  if (!res.ok) throw new Error(`Toilet detail API non-ok: ${res.status}`);
+
+  const r = await res.json();
+
+  const poi: ToiletPoi = {
+    id: r.id,
+    lat: r.lat,
+    lng: r.lng,
+    title: r.name ?? "화장실",
+    category: "toilet",
+    details: {
+      address: r.address,
+      location: r.location,
+      tel: r.tel,
+      fatherAvailable: r.fatherAvailable,
+      maleChildrenToiletCount: r.maleChildrenToiletCount,
+      femaleChildrenToiletCount: r.femaleChildrenToiletCount,
+      diaperTableLocationList: r.diaperTableLocationList,
+    },
+  };
+
+  return poi;
+}
