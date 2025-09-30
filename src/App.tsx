@@ -4,7 +4,7 @@ import KakaoMap, { type Poi } from "./components/KakaoMap";
 import { useToilets } from "./hooks/useToilets";
 import { useNurseries } from "./hooks/useNurseries";
 import type { Bounds } from "./types/geo";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import BottomDrawer from "./components/BottomDrawer";
 
 function App() {
@@ -59,6 +59,11 @@ function App() {
   const handleBack = useCallback(() => {
     setSelectedPoi(null);
   }, []);
+
+  // facilityType이 변경되면 상세보기를 닫고 목록으로 돌아감
+  useEffect(() => {
+    setSelectedPoi(null);
+  }, [facilityType]);
 
   return (
     <div className="h-screen w-screen relative">
