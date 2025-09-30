@@ -130,6 +130,19 @@ function loadKakaoSdk(): Promise<void> {
   return kakaoSdkLoadingPromise;
 }
 
+function createDotImage(kakao: KakaoNamespace, color = "#1E90FF", diameter = 12) {
+  const r = Math.floor(diameter / 2);
+  const svg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${diameter}" height="${diameter}" viewBox="0 0 ${diameter} ${diameter}">
+      <circle cx="${r}" cy="${r}" r="${r - 1}" fill="${color}" />
+      <circle cx="${r}" cy="${r}" r="${r - 1}" fill="none" stroke="#ffffff" stroke-width="1" />
+    </svg>`
+  );
+  const size = new kakao.maps.Size(diameter, diameter);
+  const offset = new kakao.maps.Point(r, r); // 중앙이 좌표와 맞닿도록
+  return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${svg}`, size, { offset });
+}
+
 /** ---- 메인 컴포넌트 ---- */
 export default function KakaoMap({
   center = { lat: 35.2313, lng: 129.0845 },
@@ -302,14 +315,19 @@ export default function KakaoMap({
 
     // 새 마커 생성
     for (const poi of poiMarkers) {
+      const position = new kakao.maps.LatLng(poi.lat, poi.lng);
+      const image = createDotImage(kakao, "#1E90FF", 12); // ← 파란 동그라미
+
       const marker = new kakao.maps.Marker({
-        position: new kakao.maps.LatLng(poi.lat, poi.lng),
+        position,
         title: poi.title,
+        image, // ← 적용
+        zIndex: 100, // (선택) 다른 오버레이 위에 보이게
       });
+
       marker.setMap(mapRef.current);
       poiMarkerRefs.current.push(marker);
 
-      // 마커 클릭 → 상위로 POI 정보 전달
       kakao.maps.event.addListener(marker, "click", () => {
         onMarkerClick?.(poi);
       });
