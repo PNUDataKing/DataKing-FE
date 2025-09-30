@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 // Minimal Kakao Maps SDK typings (subset)
-type KakaoLatLngInstance = object;
+type KakaoLatLngInstance = {
+  getLat?: () => number;
+  getLng?: () => number;
+};
 interface KakaoMap {
   setCenter?: (latlng: KakaoLatLngInstance) => void;
+  getBounds?: () => KakaoBounds;
 }
 interface KakaoMapConstructor {
   new (container: HTMLElement, options: { center: KakaoLatLngInstance; level: number }): KakaoMap;
@@ -14,6 +18,8 @@ interface KakaoLatLngConstructor {
 interface KakaoMarkerOptions {
   position: KakaoLatLngInstance;
   title?: string;
+  image?: unknown;
+  zIndex?: number;
 }
 interface KakaoMarker {
   setMap: (map: KakaoMap | null) => void;
@@ -43,6 +49,16 @@ interface KakaoMapsNS {
   LatLng: KakaoLatLngConstructor;
   Marker: KakaoMarkerConstructor;
   Circle: KakaoCircleConstructor;
+  MarkerImage: new (src: string, size: unknown, options?: { offset?: unknown }) => unknown;
+  Size: new (w: number, h: number) => unknown;
+  Point: new (x: number, y: number) => unknown;
+  event: {
+    addListener: (target: unknown, type: string, handler: () => void) => void;
+  };
+}
+interface KakaoBounds {
+  getSouthWest: () => KakaoLatLngInstance;
+  getNorthEast: () => KakaoLatLngInstance;
 }
 interface KakaoNamespace {
   maps: KakaoMapsNS;
@@ -104,7 +120,7 @@ function loadKakaoSdk(): Promise<void> {
 }
 
 export default function KakaoMap({
-  center = { lat: 37.5665, lng: 126.978 },
+  center = { lat: 35.2313, lng: 129.0845 },
   level = 3,
   className,
   style,
@@ -122,6 +138,19 @@ export default function KakaoMap({
   const currentMarkerRef = useRef<KakaoMarker | null>(null);
   const poiMarkerRefs = useRef<KakaoMarker[]>([]);
   const accuracyCircleRef = useRef<KakaoCircle | null>(null);
+
+  function createRedDotImage(kakao: KakaoNamespace) {
+    const svg = encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">\n' +
+        '  <circle cx="6" cy="6" r="5" fill="#ff3b30" />\n' +
+        '  <circle cx="6" cy="6" r="5" fill="none" stroke="#ffffff" stroke-width="1" />\n' +
+        "</svg>"
+    );
+    const src = `data:image/svg+xml;charset=UTF-8,${svg}`;
+    const size = new kakao.maps.Size(12, 12);
+    const offset = new kakao.maps.Point(6, 6);
+    return new kakao.maps.MarkerImage(src, size, { offset });
+  }
 
   const containerStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -172,11 +201,23 @@ export default function KakaoMap({
 
     if (onLoad) onLoad(map);
 
+    // Place initial current marker at initial center so it's visible even before geolocation succeeds
+    if (showCurrentMarker) {
+      if (currentMarkerRef.current) currentMarkerRef.current.setMap(null);
+      currentMarkerRef.current = new kakao.maps.Marker({
+        position: options.center,
+        title: "현재 위치",
+        image: createRedDotImage(kakao),
+        zIndex: 10000,
+      });
+      currentMarkerRef.current.setMap(mapRef.current);
+    }
+
     return () => {
       // Allow GC by releasing references; no explicit destroy API available
       mapRef.current = null;
     };
-  }, [isReady, center.lat, center.lng, level, onLoad]);
+  }, [isReady, center.lat, center.lng, level, onLoad, showCurrentMarker]);
 
   // Geolocation centering
   useEffect(() => {
@@ -206,7 +247,7 @@ export default function KakaoMap({
         // Current marker
         if (showCurrentMarker) {
           if (currentMarkerRef.current) currentMarkerRef.current.setMap(null);
-          currentMarkerRef.current = new kakao.maps.Marker({ position: latlng, title: "현재 위치" });
+          currentMarkerRef.current = new kakao.maps.Marker({ position: latlng, title: "현재 위치", image: createRedDotImage(kakao), zIndex: 10000 });
           currentMarkerRef.current.setMap(mapRef.current);
         }
         // Accuracy circle
@@ -234,6 +275,12 @@ export default function KakaoMap({
           if (typeof mapRef.current.setCenter === "function") {
             mapRef.current.setCenter(latlng);
           }
+          // Also show current marker at fallback center so the red dot is visible
+          if (showCurrentMarker) {
+            if (currentMarkerRef.current) currentMarkerRef.current.setMap(null);
+            currentMarkerRef.current = new kakao.maps.Marker({ position: latlng, title: "현재 위치", image: createRedDotImage(kakao), zIndex: 10000 });
+            currentMarkerRef.current.setMap(mapRef.current);
+          }
         }
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
@@ -259,6 +306,62 @@ export default function KakaoMap({
       poiMarkerRefs.current = [];
     };
   }, [isReady, poiMarkers]);
+
+  // Fetch nursing rooms by current map bounds on idle
+  useEffect(() => {
+    if (!isReady) return;
+    if (!window.kakao || !window.kakao.maps || !mapRef.current) return;
+    const kakao = window.kakao;
+
+    const fetchByBounds = async () => {
+      if (!mapRef.current || !mapRef.current.getBounds) return;
+      const bounds = mapRef.current.getBounds();
+      if (!bounds) return;
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
+      const swLat = sw.getLat ? sw.getLat() : undefined;
+      const swLng = sw.getLng ? sw.getLng() : undefined;
+      const neLat = ne.getLat ? ne.getLat() : undefined;
+      const neLng = ne.getLng ? ne.getLng() : undefined;
+      if ([swLat, swLng, neLat, neLng].some((v) => typeof v !== "number")) return;
+
+      const url = new URL("/api/toilets", window.location.origin);
+      url.searchParams.set("swLat", String(swLat));
+      url.searchParams.set("swLng", String(swLng));
+      url.searchParams.set("neLat", String(neLat));
+      url.searchParams.set("neLng", String(neLng));
+      try {
+        const res = await fetch(url.toString(), {
+          method: "GET",
+          headers: {
+            "ngrok-skip-browser-warning": "true",
+            Accept: "application/json",
+          },
+        });
+        const contentType = res.headers.get("content-type") || "";
+        if (!res.ok) {
+          const text = await res.text();
+          console.warn("bounds fetch non-ok", res.status, text);
+          return;
+        }
+        if (contentType.includes("application/json")) {
+          const data = await res.json();
+          console.log("bounds fetch json", { swLat, swLng, neLat, neLng, data });
+        } else {
+          const text = await res.text();
+          console.log("bounds fetch text", { swLat, swLng, neLat, neLng, text });
+        }
+      } catch (e) {
+        console.warn("bounds fetch failed", e);
+      }
+    };
+
+    // initial fetch
+    fetchByBounds();
+
+    // on idle
+    kakao.maps.event.addListener(mapRef.current, "idle", fetchByBounds);
+  }, [isReady]);
 
   return <div ref={containerRef} className={className} style={containerStyle} />;
 }
