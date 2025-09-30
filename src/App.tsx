@@ -13,7 +13,7 @@ function App() {
     loading: toiletsLoading,
     requestByBounds: reqToilets,
   } = useToilets({
-    debounceMs: 250,
+    debounceMs: 1000,
     onError: (e) => console.warn("화장실 목록 로드 실패", e),
   });
 
@@ -22,7 +22,7 @@ function App() {
     loading: nurseriesLoading,
     requestByBounds: reqNurseries,
   } = useNurseries({
-    debounceMs: 250,
+    debounceMs: 1000,
     onError: (e) => console.warn("수유실 목록 로드 실패", e),
   });
 
