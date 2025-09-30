@@ -70,8 +70,8 @@ function App() {
       <TopBar selectedType={facilityType} onTypeChange={setFacilityType} />
       <KakaoMap
         useCurrentLocation
-        center={{ lat: 35.2313, lng: 129.0845 }}
-        fallbackCenter={{ lat: 35.2313, lng: 129.0845 }}
+        center={{ lat: 35.2309931, lng: 129.0823062 }}
+        fallbackCenter={{ lat: 35.2309931, lng: 129.0823062 }}
         poiMarkers={displayPois}
         onBoundsChange={handleBoundsChange}
         onMarkerClick={handleMarkerClick}
@@ -99,12 +99,7 @@ function App() {
           주변 {facilityType === "diaper" ? "기저귀교환대" : "수유실"} 불러오는 중…
         </div>
       )}
-      <BottomDrawer
-        pois={displayPois}
-        selectedPoi={selectedPoi}
-        onPoiClick={handleDrawerPoiClick}
-        onBack={handleBack}
-      />
+      <BottomDrawer pois={displayPois} selectedPoi={selectedPoi} onPoiClick={handleDrawerPoiClick} onBack={handleBack} />
     </div>
   );
 }
