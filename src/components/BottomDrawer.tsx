@@ -115,6 +115,42 @@ export default function BottomDrawer({
                   )}
                 </>
               )}
+
+              {/* 길찾기 버튼 */}
+              <button
+                onClick={() => {
+                  // 현재 위치 가져오기
+                  if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                      (position) => {
+                        const { latitude, longitude } = position.coords;
+                        // 출발지와 도착지를 포함한 카카오맵 길찾기 URL
+                        const url = `https://map.kakao.com/link/from/현재위치,${latitude},${longitude}/to/${encodeURIComponent(
+                          selectedPoi.title || "목적지"
+                        )},${selectedPoi.lat},${selectedPoi.lng}`;
+                        window.open(url, "_blank");
+                      },
+                      (error) => {
+                        console.warn("위치 정보를 가져올 수 없습니다:", error);
+                        // 위치 정보 없이 목적지만 설정
+                        const url = `https://map.kakao.com/link/to/${encodeURIComponent(
+                          selectedPoi.title || "목적지"
+                        )},${selectedPoi.lat},${selectedPoi.lng}`;
+                        window.open(url, "_blank");
+                      }
+                    );
+                  } else {
+                    // Geolocation 미지원 브라우저
+                    const url = `https://map.kakao.com/link/to/${encodeURIComponent(
+                      selectedPoi.title || "목적지"
+                    )},${selectedPoi.lat},${selectedPoi.lng}`;
+                    window.open(url, "_blank");
+                  }
+                }}
+                className="w-full py-4 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-xl transition-colors shadow-sm"
+              >
+                길찾기
+              </button>
             </div>
           </>
         ) : (
