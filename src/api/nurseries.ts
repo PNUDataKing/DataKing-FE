@@ -1,36 +1,37 @@
-import type { Poi } from "../components/KakaoMap";
-import type { Bounds } from "../types/geo";
+import type { Bounds } from "@/types/geo";
+import type { NurseryPoi } from "@/types/poi";
 
-export async function fetchNurseriesByBounds(bounds: Bounds, signal?: AbortSignal): Promise<Poi[]> {
+export async function fetchNurseriesByBounds(bounds: Bounds, signal?: AbortSignal): Promise<NurseryPoi[]> {
   const url = new URL("/api/nurseries", window.location.origin);
+  // 스펙 swLat, swng, neLat, neLng (swng 특이값도 반영)
   url.searchParams.set("swLat", String(bounds.swLat));
-  url.searchParams.set("swLng", String(bounds.swLng));
+  url.searchParams.set("swng", String(bounds.swLng)); // 서버 스펙
+  url.searchParams.set("swLng", String(bounds.swLng)); // 혹시 대비
   url.searchParams.set("neLat", String(bounds.neLat));
   url.searchParams.set("neLng", String(bounds.neLng));
 
-  const res = await fetch(url.toString(), {
-    headers: { "ngrok-skip-browser-warning": "true", Accept: "application/json" },
-    signal,
-  });
+  const res = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal });
   if (!res.ok) throw new Error(`Nurseries API non-ok: ${res.status}`);
 
-  const data: unknown = await res.json();
-  const items = Array.isArray(data) ? (data as unknown[]) : [];
-  const mapped: Poi[] = items
-    .map((it) => {
-      const r = it as Record<string, unknown>;
-      const lat = (r.lat as number) ?? (r.latitude as number) ?? (r.y as number);
-      const lng = (r.lng as number) ?? (r.longitude as number) ?? (r.x as number);
-      if (typeof lat !== "number" || typeof lng !== "number") return null;
-      return {
-        id: (r.id as string | number) ?? (r._id as string | number),
-        lat,
-        lng,
-        title: (r.name as string) ?? (r.title as string) ?? (r.place_name as string),
+  const data = (await res.json()) as any[];
+  return data
+    .map((r) => {
+      if (typeof r.lat !== "number" || typeof r.lng !== "number") return null;
+      const poi: NurseryPoi = {
+        id: r.id,
+        lat: r.lat,
+        lng: r.lng,
+        title: r.name ?? "수유실",
         category: "nursery",
-      } as Poi;
+        details: {
+          address: r.address,
+          location: r.location,
+          tel: r.tel,
+          fatherAvailable: r.fatherAvailable,
+          referenceDate: r.referenceDate,
+        },
+      };
+      return poi;
     })
-    .filter((v): v is Poi => v !== null);
-
-  return mapped;
+    .filter((v): v is NurseryPoi => !!v);
 }

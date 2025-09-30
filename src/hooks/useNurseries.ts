@@ -1,43 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchNurseriesByBounds } from "../api/nurseries";
-import type { Bounds } from "../types/geo";
-import type { Poi } from "../components/KakaoMap";
+import type { Bounds } from "@/types/geo";
+import type { NurseryPoi } from "@/types/poi";
 
-type Options = {
-  debounceMs?: number;
-  onError?: (e: unknown) => void;
-  onSuccess?: (pois: Poi[]) => void;
-};
-
-export function useNurseries({ debounceMs = 250, onError, onSuccess }: Options = {}) {
-  const [pois, setPois] = useState<Poi[]>([]);
+export function useNurseries({ debounceMs = 250, onError }: { debounceMs?: number; onError?: (e: unknown) => void } = {}) {
+  const [pois, setPois] = useState<NurseryPoi[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const pendingBoundsRef = useRef<Bounds | null>(null);
-  const debounceTimerRef = useRef<number | null>(null);
+  const pendRef = useRef<Bounds | null>(null);
+  const tRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   const requestByBounds = useCallback(
-    (bounds: Bounds) => {
-      pendingBoundsRef.current = bounds;
-
-      if (debounceTimerRef.current) {
-        window.clearTimeout(debounceTimerRef.current);
-        debounceTimerRef.current = null;
+    (b: Bounds) => {
+      pendRef.current = b;
+      if (tRef.current) {
+        clearTimeout(tRef.current);
+        tRef.current = null;
       }
-
-      debounceTimerRef.current = window.setTimeout(async () => {
-        if (!pendingBoundsRef.current) return;
-
+      tRef.current = window.setTimeout(async () => {
+        if (!pendRef.current) return;
         if (abortRef.current) abortRef.current.abort();
         abortRef.current = new AbortController();
-
         try {
           setLoading(true);
-          const data = await fetchNurseriesByBounds(pendingBoundsRef.current, abortRef.current.signal);
+          const data = await fetchNurseriesByBounds(pendRef.current, abortRef.current.signal);
           setPois(data);
-          onSuccess?.(data);
         } catch (e: any) {
           if (e?.name !== "AbortError") onError?.(e);
         } finally {
@@ -45,15 +33,16 @@ export function useNurseries({ debounceMs = 250, onError, onSuccess }: Options =
         }
       }, debounceMs);
     },
-    [debounceMs, onError, onSuccess]
+    [debounceMs, onError]
   );
 
-  useEffect(() => {
-    return () => {
-      if (debounceTimerRef.current) window.clearTimeout(debounceTimerRef.current);
+  useEffect(
+    () => () => {
+      if (tRef.current) clearTimeout(tRef.current);
       if (abortRef.current) abortRef.current.abort();
-    };
-  }, []);
+    },
+    []
+  );
 
   return { pois, loading, requestByBounds };
 }
