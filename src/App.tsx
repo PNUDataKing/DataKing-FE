@@ -88,7 +88,7 @@ function App() {
         </div>
       )}
       <BottomDrawer
-        pois={pois}
+        pois={[...toilets, ...nurseries]} // TODO : 수정 필요
         selectedPoi={selectedPoi}
         onPoiClick={handleDrawerPoiClick}
         onBack={handleBack}
