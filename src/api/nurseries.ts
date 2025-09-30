@@ -2,7 +2,7 @@ import type { Bounds } from "@/types/geo";
 import type { NurseryPoi } from "@/types/poi";
 
 export async function fetchNurseriesByBounds(bounds: Bounds, signal?: AbortSignal): Promise<NurseryPoi[]> {
-  const url = new URL("/api/nurseries", window.location.origin);
+  const url = new URL("/api/nursing-rooms", window.location.origin);
   // 스펙 swLat, swng, neLat, neLng (swng 특이값도 반영)
   url.searchParams.set("swLat", String(bounds.swLat));
   url.searchParams.set("swng", String(bounds.swLng)); // 서버 스펙
