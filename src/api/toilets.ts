@@ -1,8 +1,10 @@
 import type { Bounds } from "@/types/geo";
 import type { ToiletPoi } from "@/types/poi";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+
 export async function fetchToiletsByBounds(bounds: Bounds, signal?: AbortSignal): Promise<ToiletPoi[]> {
-  const url = new URL("/api/toilets", window.location.origin);
+  const url = new URL("/api/toilets", API_BASE_URL || window.location.origin);
   url.searchParams.set("swLat", String(bounds.swLat));
   url.searchParams.set("swLng", String(bounds.swLng));
   url.searchParams.set("neLat", String(bounds.neLat));
@@ -40,7 +42,7 @@ export async function fetchToiletsByBounds(bounds: Bounds, signal?: AbortSignal)
 }
 
 export async function fetchToiletDetail(id: string | number, signal?: AbortSignal): Promise<ToiletPoi> {
-  const url = new URL(`/api/toilets/${id}`, window.location.origin);
+  const url = new URL(`/api/toilets/${id}`, API_BASE_URL || window.location.origin);
 
   const res = await fetch(url.toString(), { headers: { Accept: "application/json" }, signal });
   if (!res.ok) throw new Error(`Toilet detail API non-ok: ${res.status}`);
