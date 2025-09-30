@@ -11,16 +11,6 @@ export default function TopBar({ selectedType, onTypeChange }: TopBarProps) {
       <div className="flex justify-center">
         <div className="bg-white rounded-xl shadow-lg p-1 flex gap-1">
           <button
-            onClick={() => onTypeChange("diaper")}
-            className={`px-6 py-2 rounded-xl font-medium text-sm transition-all ${
-              selectedType === "diaper"
-                ? "bg-blue-500 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-50"
-            }`}
-          >
-            기저귀교환대
-          </button>
-          <button
             onClick={() => onTypeChange("nursing")}
             className={`px-6 py-2 rounded-xl font-medium text-sm transition-all ${
               selectedType === "nursing"
@@ -29,6 +19,16 @@ export default function TopBar({ selectedType, onTypeChange }: TopBarProps) {
             }`}
           >
             수유실
+          </button>
+          <button
+            onClick={() => onTypeChange("diaper")}
+            className={`px-6 py-2 rounded-xl font-medium text-sm transition-all ${
+              selectedType === "diaper"
+                ? "bg-blue-500 text-white"
+                : "bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            기저귀교환대
           </button>
         </div>
       </div>

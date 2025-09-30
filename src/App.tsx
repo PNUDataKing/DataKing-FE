@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import BottomDrawer from "./components/BottomDrawer";
 
 function App() {
-  const [facilityType, setFacilityType] = useState<FacilityType>("diaper");
+  const [facilityType, setFacilityType] = useState<FacilityType>("nursing");
 
   const {
     pois: toilets,
