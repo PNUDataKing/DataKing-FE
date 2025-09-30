@@ -5,6 +5,7 @@ import { useToilets } from "./hooks/useToilets";
 import { useNurseries } from "./hooks/useNurseries";
 import type { Bounds } from "./types/geo";
 import { useCallback, useMemo, useState } from "react";
+import BottomDrawer from "./components/BottomDrawer";
 
 function App() {
   const {
