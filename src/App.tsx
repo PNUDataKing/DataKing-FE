@@ -41,7 +41,16 @@ function App() {
   const handleMarkerClick = useCallback((poi: Poi) => {
     console.log("[App] marker clicked:", poi);
     setSelectedPoi(poi);
-    // setDrawerOpen(true) 등으로 드로어 열기
+  }, []);
+
+  const handleDrawerPoiClick = useCallback((poi: Poi) => {
+    console.log("[App] drawer poi clicked:", poi);
+    setSelectedPoi(poi);
+    // TODO: 지도 중심을 해당 POI로 이동하는 로직 추가
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setSelectedPoi(null);
   }, []);
 
   return (
@@ -78,7 +87,12 @@ function App() {
           주변 장소(화장실/수유실) 불러오는 중…
         </div>
       )}
-      <BottomDrawer />
+      <BottomDrawer
+        pois={pois}
+        selectedPoi={selectedPoi}
+        onPoiClick={handleDrawerPoiClick}
+        onBack={handleBack}
+      />
     </div>
   );
 }
