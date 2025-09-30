@@ -1,15 +1,16 @@
 import "./App.css";
 import TopBar, { type FacilityType } from "./components/TopBar";
-import KakaoMap, { type Poi } from "./components/KakaoMap";
+import KakaoMap, { type KakaoMapHandle, type Poi } from "./components/KakaoMap";
 import { useToilets } from "./hooks/useToilets";
 import { useNurseries } from "./hooks/useNurseries";
 import type { Bounds } from "./types/geo";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import BottomDrawer from "./components/BottomDrawer";
 
 function App() {
   const [facilityType, setFacilityType] = useState<FacilityType>("nursing");
   const [fatherFilterEnabled, setFatherFilterEnabled] = useState(false);
+  const mapRef = useRef<KakaoMapHandle>(null);
 
   const {
     pois: toilets,
@@ -65,7 +66,7 @@ function App() {
   const handleDrawerPoiClick = useCallback((poi: Poi) => {
     console.log("[App] drawer poi clicked:", poi);
     setSelectedPoi(poi);
-    // TODO: 지도 중심을 해당 POI로 이동하는 로직 추가
+    mapRef.current?.panTo(poi.lat, poi.lng);
   }, []);
 
   const handleBack = useCallback(() => {
@@ -81,6 +82,7 @@ function App() {
     <div className="h-screen w-screen relative">
       <TopBar selectedType={facilityType} onTypeChange={setFacilityType} />
       <KakaoMap
+        ref={mapRef}
         useCurrentLocation
         level={5}
         center={{ lat: 35.205597, lng: 129.078478 }}

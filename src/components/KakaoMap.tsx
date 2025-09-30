@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 
 /** ---- Kakao Maps 최소 타입 (읽기 좋게 정리) ---- */
 type KakaoLatLngInstance = { getLat?: () => number; getLng?: () => number };
@@ -72,6 +72,10 @@ declare global {
 
 /** ---- 컴포넌트 Prop 타입 ---- */
 export type Poi = { id?: string | number; lat: number; lng: number; title?: string };
+
+export interface KakaoMapHandle {
+  panTo: (lat: number, lng: number) => void;
+}
 
 type KakaoMapProps = {
   center?: { lat: number; lng: number };
@@ -188,26 +192,44 @@ function createHaloDotImage(
 }
 
 /** ---- 메인 컴포넌트 ---- */
-export default function KakaoMap({
-  center = { lat: 35.2309931, lng: 129.0823062 },
-  level = 3,
-  className,
-  style,
-  onLoad,
+const KakaoMap = forwardRef<KakaoMapHandle, KakaoMapProps>(
+  (
+    {
+      center = { lat: 35.2309931, lng: 129.0823062 },
+      level = 3,
+      className,
+      style,
+      onLoad,
 
-  useCurrentLocation = true,
-  fallbackCenter,
-  showCurrentMarker = true,
-  showAccuracyCircle = true,
+      useCurrentLocation = true,
+      fallbackCenter,
+      showCurrentMarker = true,
+      showAccuracyCircle = true,
 
-  poiMarkers = [],
-  onGeolocationError,
-  onBoundsChange,
-  onMarkerClick,
-}: KakaoMapProps) {
+      poiMarkers = [],
+      onGeolocationError,
+      onBoundsChange,
+      onMarkerClick,
+    },
+    ref
+  ) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isReady, setIsReady] = useState(false);
   const mapRef = useRef<KakaoMap | null>(null);
+
+  // Expose panTo method via ref
+  useImperativeHandle(ref, () => ({
+    panTo: (lat: number, lng: number) => {
+      if (!window.kakao?.maps || !mapRef.current) return;
+      const kakao = window.kakao;
+      const latlng = new kakao.maps.LatLng(lat, lng);
+      if (typeof mapRef.current.panTo === "function") {
+        mapRef.current.panTo(latlng);
+      } else if (typeof mapRef.current.setCenter === "function") {
+        mapRef.current.setCenter(latlng);
+      }
+    },
+  }));
 
   // 내부 오버레이 레퍼런스
   const currentMarkerRef = useRef<KakaoMarker | null>(null);
@@ -440,4 +462,8 @@ export default function KakaoMap({
   }, [isReady, onBoundsChange]);
 
   return <div ref={containerRef} className={className} style={containerStyle} />;
-}
+});
+
+KakaoMap.displayName = "KakaoMap";
+
+export default KakaoMap;
