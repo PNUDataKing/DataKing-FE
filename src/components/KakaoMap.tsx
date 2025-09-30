@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-
-// Minimal Kakao Maps SDK typings (subset)
 type KakaoLatLngInstance = {
   getLat?: () => number;
   getLng?: () => number;
@@ -8,6 +6,7 @@ type KakaoLatLngInstance = {
 interface KakaoMap {
   setCenter?: (latlng: KakaoLatLngInstance) => void;
   getBounds?: () => KakaoBounds;
+  panTo?: (latlng: KakaoLatLngInstance) => void;
 }
 interface KakaoMapConstructor {
   new (container: HTMLElement, options: { center: KakaoLatLngInstance; level: number }): KakaoMap;
@@ -82,6 +81,7 @@ type KakaoMapProps = {
   poiMarkers?: Array<{ lat: number; lng: number; title?: string }>;
   onGeolocationError?: (error: GeolocationPositionError | Error) => void;
   showAccuracyCircle?: boolean;
+  onBoundsChange?: (bounds: { swLat: number; swLng: number; neLat: number; neLng: number }) => void;
 };
 
 const KAKAO_JS_SDK_URL = "https://dapi.kakao.com/v2/maps/sdk.js";
@@ -132,6 +132,7 @@ export default function KakaoMap({
   poiMarkers = [],
   onGeolocationError,
   showAccuracyCircle = true,
+  onBoundsChange,
 }: KakaoMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -139,6 +140,7 @@ export default function KakaoMap({
   const currentMarkerRef = useRef<KakaoMarker | null>(null);
   const poiMarkerRefs = useRef<KakaoMarker[]>([]);
   const accuracyCircleRef = useRef<KakaoCircle | null>(null);
+  const hasCenteredRef = useRef<boolean>(false);
 
   function createRedDotImage(kakao: KakaoNamespace) {
     const svg = encodeURIComponent(
@@ -153,21 +155,7 @@ export default function KakaoMap({
     return new kakao.maps.MarkerImage(src, size, { offset });
   }
 
-  function createBlueDotImage(kakao: KakaoNamespace, sizePx = 18) {
-    const r = Math.round(sizePx / 2 - 2);
-    const c = Math.round(sizePx / 2);
-    const strokeW = Math.max(2, Math.round(sizePx * 0.1));
-    const svg = encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}">
-         <circle cx="${c}" cy="${c}" r="${r}" fill="#3b82f6" />
-         <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#ffffff" stroke-width="${strokeW}" />
-       </svg>`
-    );
-    const src = `data:image/svg+xml;charset=UTF-8,${svg}`;
-    const size = new kakao.maps.Size(sizePx, sizePx);
-    const offset = new kakao.maps.Point(c, c);
-    return new kakao.maps.MarkerImage(src, size, { offset });
-  }
+  // (Optional) custom POI image helper removed to avoid unused symbol
 
   const containerStyle = useMemo<React.CSSProperties>(
     () => ({
@@ -234,7 +222,7 @@ export default function KakaoMap({
       // Allow GC by releasing references; no explicit destroy API available
       mapRef.current = null;
     };
-  }, [isReady, center.lat, center.lng, level, onLoad, showCurrentMarker]);
+  }, [isReady]);
 
   // Geolocation centering
   useEffect(() => {
@@ -255,11 +243,10 @@ export default function KakaoMap({
           accuracy: pos.coords.accuracy,
         });
         // Center map
-        if (typeof mapRef.current.setCenter === "function") {
+        if (!hasCenteredRef.current && typeof mapRef.current.setCenter === "function") {
           mapRef.current.setCenter(latlng);
+          hasCenteredRef.current = true;
           console.log("Map centered to current position");
-        } else {
-          // Fallback: recreate map center by re-instantiating is unnecessary; skip
         }
         // Current marker
         if (showCurrentMarker) {
@@ -289,8 +276,9 @@ export default function KakaoMap({
         if (fallbackCenter && window.kakao && window.kakao.maps && mapRef.current) {
           const kakao = window.kakao;
           const latlng = new kakao.maps.LatLng(fallbackCenter.lat, fallbackCenter.lng);
-          if (typeof mapRef.current.setCenter === "function") {
+          if (!hasCenteredRef.current && typeof mapRef.current.setCenter === "function") {
             mapRef.current.setCenter(latlng);
+            hasCenteredRef.current = true;
           }
           // Also show current marker at fallback center so the red dot is visible
           if (showCurrentMarker) {
@@ -324,13 +312,13 @@ export default function KakaoMap({
     };
   }, [isReady, poiMarkers]);
 
-  // Fetch nursing rooms by current map bounds on idle
+  // Emit bounds to parent on idle so parent can fetch
   useEffect(() => {
     if (!isReady) return;
     if (!window.kakao || !window.kakao.maps || !mapRef.current) return;
     const kakao = window.kakao;
 
-    const fetchByBounds = async () => {
+    const emitBounds = () => {
       if (!mapRef.current || !mapRef.current.getBounds) return;
       const bounds = mapRef.current.getBounds();
       if (!bounds) return;
@@ -341,71 +329,17 @@ export default function KakaoMap({
       const neLat = ne.getLat ? ne.getLat() : undefined;
       const neLng = ne.getLng ? ne.getLng() : undefined;
       if ([swLat, swLng, neLat, neLng].some((v) => typeof v !== "number")) return;
-
-      // # 여기서 화장실 가져오고 있사요...
-      const url = new URL("/api/toilets", window.location.origin);
-      url.searchParams.set("swLat", String(swLat));
-      url.searchParams.set("swLng", String(swLng));
-      url.searchParams.set("neLat", String(neLat));
-      url.searchParams.set("neLng", String(neLng));
-      try {
-        const res = await fetch(url.toString(), {
-          method: "GET",
-          headers: {
-            "ngrok-skip-browser-warning": "true",
-            Accept: "application/json",
-          },
-        });
-        const contentType = res.headers.get("content-type") || "";
-        if (!res.ok) {
-          const text = await res.text();
-          console.warn("bounds fetch non-ok", res.status, text);
-          return;
-        }
-        if (contentType.includes("application/json")) {
-          const data = await res.json();
-          console.log("bounds fetch json", { swLat, swLng, neLat, neLng, data });
-
-          // Render API results as markers on the map
-          if (Array.isArray(data) && mapRef.current && window.kakao && window.kakao.maps) {
-            const kakao = window.kakao;
-            // Clear existing POI markers
-            poiMarkerRefs.current.forEach((m) => m.setMap(null));
-            poiMarkerRefs.current = [];
-
-            for (const item of data) {
-              const lat = item.lat ?? item.latitude ?? item.y;
-              const lng = item.lng ?? item.longitude ?? item.x;
-              if (typeof lat !== "number" || typeof lng !== "number") continue;
-              const title = item.name ?? item.title ?? item.place_name ?? "시설";
-              const normalImg = createBlueDotImage(kakao, 18);
-              const hoverImg = createBlueDotImage(kakao, 22);
-              const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(lat, lng), title, image: normalImg });
-              marker.setMap(mapRef.current);
-              poiMarkerRefs.current.push(marker);
-
-              // Hover grow effect
-              if (marker.setImage) {
-                kakao.maps.event.addListener(marker, "mouseover", () => marker.setImage!(hoverImg));
-                kakao.maps.event.addListener(marker, "mouseout", () => marker.setImage!(normalImg));
-              }
-            }
-          }
-        } else {
-          const text = await res.text();
-          console.log("bounds fetch text", { swLat, swLng, neLat, neLng, text });
-        }
-      } catch (e) {
-        console.warn("bounds fetch failed", e);
+      if (onBoundsChange) {
+        onBoundsChange({ swLat: swLat as number, swLng: swLng as number, neLat: neLat as number, neLng: neLng as number });
       }
     };
 
-    // initial fetch
-    fetchByBounds();
+    // initial emit
+    emitBounds();
 
     // on idle
-    kakao.maps.event.addListener(mapRef.current, "idle", fetchByBounds);
-  }, [isReady]);
+    kakao.maps.event.addListener(mapRef.current, "idle", emitBounds);
+  }, [isReady, onBoundsChange]);
 
   return <div ref={containerRef} className={className} style={containerStyle} />;
 }
