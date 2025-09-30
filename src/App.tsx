@@ -2,24 +2,45 @@ import "./App.css";
 import TopBar from "./components/TopBar";
 import KakaoMap, { type Poi } from "./components/KakaoMap";
 import { useToilets } from "./hooks/useToilets";
+import { useNurseries } from "./hooks/useNurseries";
 import type { Bounds } from "./types/geo";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 function App() {
-  const { pois, loading, requestByBounds } = useToilets({
+  const {
+    pois: toilets,
+    loading: toiletsLoading,
+    requestByBounds: reqToilets,
+  } = useToilets({
     debounceMs: 250,
-    onError: (e) => {
-      console.warn("화장실 목록 로드 실패", e);
-    },
+    onError: (e) => console.warn("화장실 목록 로드 실패", e),
   });
+
+  const {
+    pois: nurseries,
+    loading: nurseriesLoading,
+    requestByBounds: reqNurseries,
+  } = useNurseries({
+    debounceMs: 250,
+    onError: (e) => console.warn("수유실 목록 로드 실패", e),
+  });
+
+  const loading = toiletsLoading || nurseriesLoading;
+
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
 
-  const handleBoundsChange = (b: Bounds) => requestByBounds(b);
+  const handleBoundsChange = useCallback(
+    (b: Bounds) => {
+      reqToilets(b);
+      reqNurseries(b);
+    },
+    [reqToilets, reqNurseries]
+  );
 
   const handleMarkerClick = useCallback((poi: Poi) => {
     console.log("[App] marker clicked:", poi);
     setSelectedPoi(poi);
-    // TODO: 여기서 Drawer 열기 setDrawerOpen(true) 같은 로직을 붙이면 됨
+    // setDrawerOpen(true) 등으로 드로어 열기
   }, []);
 
   return (
@@ -29,9 +50,9 @@ function App() {
         useCurrentLocation
         center={{ lat: 35.2313, lng: 129.0845 }}
         fallbackCenter={{ lat: 35.2313, lng: 129.0845 }}
-        poiMarkers={pois}
+        poiMarkers={nurseries}
         onBoundsChange={handleBoundsChange}
-        onMarkerClick={handleMarkerClick} // ★ 마커 클릭 콜백 연결
+        onMarkerClick={handleMarkerClick}
         onGeolocationError={(e: GeolocationPositionError | Error) => {
           const err = "code" in e ? (e as GeolocationPositionError) : undefined;
           const code = err ? err.code : undefined;
@@ -39,7 +60,7 @@ function App() {
           console.warn("geo error", code, message);
         }}
       />
-      {/* 로딩 인디케이터 예시 */}
+
       {loading && (
         <div
           style={{
@@ -53,9 +74,11 @@ function App() {
             fontSize: 12,
           }}
         >
-          주변 화장실 불러오는 중…
+          주변 장소(화장실/수유실) 불러오는 중…
         </div>
       )}
+
+      {/* selectedPoi를 Drawer 컴포넌트로 넘겨 상세 표시하면 끝 */}
     </div>
   );
 }
