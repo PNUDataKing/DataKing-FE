@@ -45,7 +45,7 @@ function App() {
   }, []);
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div className="h-screen w-screen relative">
       <TopBar />
       <KakaoMap
         useCurrentLocation
@@ -78,8 +78,7 @@ function App() {
           주변 장소(화장실/수유실) 불러오는 중…
         </div>
       )}
-
-      {/* selectedPoi를 Drawer 컴포넌트로 넘겨 상세 표시하면 끝 */}
+      <BottomDrawer />
     </div>
   );
 }
