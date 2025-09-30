@@ -9,6 +9,7 @@ import BottomDrawer from "./components/BottomDrawer";
 
 function App() {
   const [facilityType, setFacilityType] = useState<FacilityType>("nursing");
+  const [fatherFilterEnabled, setFatherFilterEnabled] = useState(false);
 
   const {
     pois: toilets,
@@ -32,10 +33,21 @@ function App() {
 
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
 
-  // 현재 선택된 분류에 따라 표시할 POI 결정
+  // 현재 선택된 분류에 따라 표시할 POI 결정 + 아빠 필터 적용
   const displayPois = useMemo(() => {
-    return facilityType === "diaper" ? toilets : nurseries;
-  }, [facilityType, toilets, nurseries]);
+    const basePois = facilityType === "diaper" ? toilets : nurseries;
+
+    if (fatherFilterEnabled) {
+      return basePois.filter((poi) => {
+        if ("details" in poi && poi.details) {
+          return poi.details.fatherAvailable === true;
+        }
+        return false;
+      });
+    }
+
+    return basePois;
+  }, [facilityType, toilets, nurseries, fatherFilterEnabled]);
 
   const handleBoundsChange = useCallback(
     (b: Bounds) => {
@@ -100,7 +112,14 @@ function App() {
           주변 {facilityType === "diaper" ? "기저귀교환대" : "수유실"} 불러오는 중…
         </div>
       )}
-      <BottomDrawer pois={displayPois} selectedPoi={selectedPoi} onPoiClick={handleDrawerPoiClick} onBack={handleBack} />
+      <BottomDrawer
+        pois={displayPois}
+        selectedPoi={selectedPoi}
+        onPoiClick={handleDrawerPoiClick}
+        onBack={handleBack}
+        fatherFilterEnabled={fatherFilterEnabled}
+        onFatherFilterToggle={() => setFatherFilterEnabled(!fatherFilterEnabled)}
+      />
     </div>
   );
 }
