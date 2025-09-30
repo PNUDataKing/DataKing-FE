@@ -1,10 +1,12 @@
 import "./App.css";
 import KakaoMap from "./components/KakaoMap";
+import TopBar from "./components/TopBar";
 
 function App() {
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
+    <div className="relative w-screen h-screen">
       <KakaoMap useCurrentLocation fallbackCenter={undefined} onGeolocationError={(e) => console.warn("geo error", e?.code, e?.message || e)} />
+      <TopBar />
     </div>
   );
 }
