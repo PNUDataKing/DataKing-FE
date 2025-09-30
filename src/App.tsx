@@ -1,5 +1,5 @@
 import "./App.css";
-import TopBar from "./components/TopBar";
+import TopBar, { type FacilityType } from "./components/TopBar";
 import KakaoMap, { type Poi } from "./components/KakaoMap";
 import { useToilets } from "./hooks/useToilets";
 import { useNurseries } from "./hooks/useNurseries";
@@ -8,6 +8,8 @@ import { useCallback, useMemo, useState } from "react";
 import BottomDrawer from "./components/BottomDrawer";
 
 function App() {
+  const [facilityType, setFacilityType] = useState<FacilityType>("diaper");
+
   const {
     pois: toilets,
     loading: toiletsLoading,
@@ -29,6 +31,11 @@ function App() {
   const loading = toiletsLoading || nurseriesLoading;
 
   const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
+
+  // 현재 선택된 분류에 따라 표시할 POI 결정
+  const displayPois = useMemo(() => {
+    return facilityType === "diaper" ? toilets : nurseries;
+  }, [facilityType, toilets, nurseries]);
 
   const handleBoundsChange = useCallback(
     (b: Bounds) => {
@@ -55,12 +62,12 @@ function App() {
 
   return (
     <div className="h-screen w-screen relative">
-      <TopBar />
+      <TopBar selectedType={facilityType} onTypeChange={setFacilityType} />
       <KakaoMap
         useCurrentLocation
         center={{ lat: 35.2313, lng: 129.0845 }}
         fallbackCenter={{ lat: 35.2313, lng: 129.0845 }}
-        poiMarkers={toilets}
+        poiMarkers={displayPois}
         onBoundsChange={handleBoundsChange}
         onMarkerClick={handleMarkerClick}
         onGeolocationError={(e: GeolocationPositionError | Error) => {
@@ -84,11 +91,11 @@ function App() {
             fontSize: 12,
           }}
         >
-          주변 장소(화장실/수유실) 불러오는 중…
+          주변 {facilityType === "diaper" ? "기저귀교환대" : "수유실"} 불러오는 중…
         </div>
       )}
       <BottomDrawer
-        pois={[...toilets, ...nurseries]} // TODO : 수정 필요
+        pois={displayPois}
         selectedPoi={selectedPoi}
         onPoiClick={handleDrawerPoiClick}
         onBack={handleBack}
