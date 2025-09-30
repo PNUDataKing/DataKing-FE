@@ -1,8 +1,9 @@
 import "./App.css";
 import TopBar from "./components/TopBar";
-import KakaoMap from "./components/KakaoMap";
+import KakaoMap, { type Poi } from "./components/KakaoMap";
 import { useToilets } from "./hooks/useToilets";
 import type { Bounds } from "./types/geo";
+import { useCallback, useState } from "react";
 
 function App() {
   const { pois, loading, requestByBounds } = useToilets({
@@ -11,8 +12,15 @@ function App() {
       console.warn("화장실 목록 로드 실패", e);
     },
   });
+  const [selectedPoi, setSelectedPoi] = useState<Poi | null>(null);
 
   const handleBoundsChange = (b: Bounds) => requestByBounds(b);
+
+  const handleMarkerClick = useCallback((poi: Poi) => {
+    console.log("[App] marker clicked:", poi);
+    setSelectedPoi(poi);
+    // TODO: 여기서 Drawer 열기 setDrawerOpen(true) 같은 로직을 붙이면 됨
+  }, []);
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
@@ -23,6 +31,7 @@ function App() {
         fallbackCenter={{ lat: 35.2313, lng: 129.0845 }}
         poiMarkers={pois}
         onBoundsChange={handleBoundsChange}
+        onMarkerClick={handleMarkerClick} // ★ 마커 클릭 콜백 연결
         onGeolocationError={(e: GeolocationPositionError | Error) => {
           const err = "code" in e ? (e as GeolocationPositionError) : undefined;
           const code = err ? err.code : undefined;
