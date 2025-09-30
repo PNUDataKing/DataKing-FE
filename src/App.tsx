@@ -99,12 +99,7 @@ function App() {
           주변 {facilityType === "diaper" ? "기저귀교환대" : "수유실"} 불러오는 중…
         </div>
       )}
-      <BottomDrawer
-        pois={displayPois}
-        selectedPoi={selectedPoi}
-        onPoiClick={handleDrawerPoiClick}
-        onBack={handleBack}
-      />
+      <BottomDrawer pois={displayPois} selectedPoi={selectedPoi} onPoiClick={handleDrawerPoiClick} onBack={handleBack} />
     </div>
   );
 }

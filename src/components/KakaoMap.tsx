@@ -57,7 +57,7 @@ interface KakaoMapsNS {
   Point: new (x: number, y: number) => unknown;
   event: {
     addListener: (target: unknown, type: string, handler: () => void) => void;
-    removeListener?: (target: unknown, type: string, handler: () => void) => void; // 있어도 되고 없어도 됨
+    removeListener?: (target: unknown, type: string, handler: () => void) => void;
   };
 }
 interface KakaoNamespace {
@@ -92,7 +92,7 @@ type KakaoMapProps = {
   // 이벤트 콜백
   onGeolocationError?: (error: GeolocationPositionError | Error) => void;
   onBoundsChange?: (bounds: { swLat: number; swLng: number; neLat: number; neLng: number }) => void;
-  onMarkerClick?: (poi: Poi) => void; // ★ 추가: 특정 마커 클릭을 부모(App)로 전달
+  onMarkerClick?: (poi: Poi) => void;
 };
 
 /** ---- Kakao SDK 로더 ---- */
@@ -130,12 +130,18 @@ function loadKakaoSdk(): Promise<void> {
   return kakaoSdkLoadingPromise;
 }
 
-function createDotImage(kakao: KakaoNamespace, color = "#1E90FF", diameter = 12) {
+/** 동그라미 마커 이미지 (색/크기/테두리 두께 조절) */
+function createDotImage(
+  kakao: KakaoNamespace,
+  color = "#1E90FF",
+  diameter = 16, // 기본 크기: 16px
+  strokeWidth = 1 // 기본 테두리: 1px
+) {
   const r = Math.floor(diameter / 2);
   const svg = encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${diameter}" height="${diameter}" viewBox="0 0 ${diameter} ${diameter}">
-      <circle cx="${r}" cy="${r}" r="${r - 1}" fill="${color}" />
-      <circle cx="${r}" cy="${r}" r="${r - 1}" fill="none" stroke="#ffffff" stroke-width="1" />
+      <circle cx="${r}" cy="${r}" r="${r - strokeWidth}" fill="${color}" />
+      <circle cx="${r}" cy="${r}" r="${r - strokeWidth}" fill="none" stroke="#ffffff" stroke-width="${strokeWidth}" />
     </svg>`
   );
   const size = new kakao.maps.Size(diameter, diameter);
@@ -168,22 +174,33 @@ export default function KakaoMap({
   // 내부 오버레이 레퍼런스
   const currentMarkerRef = useRef<KakaoMarker | null>(null);
   const poiMarkerRefs = useRef<KakaoMarker[]>([]);
+  const selectedMarkerRef = useRef<KakaoMarker | null>(null); // ★ 선택 마커
   const accuracyCircleRef = useRef<KakaoCircle | null>(null);
   const hasCenteredRef = useRef(false);
 
   /** 빨간 점 아이콘(현재 위치 마커) */
-  function createRedDotImage(kakao: KakaoNamespace) {
+  /** 현재 위치(빨간 점) 마커 - 레티나 고려 + 더 큼 */
+  function createRedDotImage(
+    kakao: KakaoNamespace,
+    baseDiameter = 10, // ← 기존 12/16 → 20px로 키움
+    strokeWidth = 2 // ← 흰 테두리 두께 업
+  ) {
+    // 고해상도에서 또렷하게 (과도 확대 방지)
+    const scale = Math.min(window.devicePixelRatio || 1, 2);
+    const diameter = Math.round(baseDiameter * scale);
+    const r = Math.floor(diameter / 2);
+
     const svg = encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">
-         <circle cx="6" cy="6" r="5" fill="#ff3b30" />
-         <circle cx="6" cy="6" r="5" fill="none" stroke="#ffffff" stroke-width="1" />
-       </svg>`
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${diameter}" height="${diameter}" viewBox="0 0 ${diameter} ${diameter}">
+      <circle cx="${r}" cy="${r}" r="${r - strokeWidth}" fill="#ff3b30" />
+      <circle cx="${r}" cy="${r}" r="${r - strokeWidth}" fill="none" stroke="#ffffff" stroke-width="${strokeWidth}" />
+    </svg>`
     );
-    const size = new kakao.maps.Size(12, 12);
-    const offset = new kakao.maps.Point(6, 6);
+
+    const size = new kakao.maps.Size(diameter, diameter);
+    const offset = new kakao.maps.Point(r, r); // 중심 정렬
     return new kakao.maps.MarkerImage(`data:image/svg+xml;charset=UTF-8,${svg}`, size, { offset });
   }
-
   // 컨테이너 스타일(읽기 좋게 한곳에서 병합)
   const containerStyle = useMemo<React.CSSProperties>(() => ({ width: "100%", height: "100%", ...style }), [style]);
 
@@ -304,7 +321,7 @@ export default function KakaoMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, useCurrentLocation, showCurrentMarker, fallbackCenter, showAccuracyCircle]);
 
-  /** 4) 외부에서 내려온 POI 마커 렌더링 + 클릭 전달 */
+  /** 4) 외부에서 내려온 POI 마커 렌더링 + 클릭 시 강조(크기/테두리 증가) */
   useEffect(() => {
     if (!isReady || !window.kakao?.maps || !mapRef.current) return;
     const kakao = window.kakao;
@@ -312,23 +329,34 @@ export default function KakaoMap({
     // 기존 마커 제거
     poiMarkerRefs.current.forEach((m) => m.setMap(null));
     poiMarkerRefs.current = [];
+    selectedMarkerRef.current = null; // 선택 상태 초기화
 
-    // 새 마커 생성
+    // 공통(기본/선택) 이미지 준비
+    const normalImg = createDotImage(kakao, "#1E90FF", 16, 1);
+    const selectedImg = createDotImage(kakao, "#1E90FF", 22, 2);
+
     for (const poi of poiMarkers) {
       const position = new kakao.maps.LatLng(poi.lat, poi.lng);
-      const image = createDotImage(kakao, "#1E90FF", 12); // ← 파란 동그라미
 
       const marker = new kakao.maps.Marker({
         position,
         title: poi.title,
-        image, // ← 적용
-        zIndex: 100, // (선택) 다른 오버레이 위에 보이게
+        image: normalImg, // 기본 상태
+        zIndex: 100,
       });
 
       marker.setMap(mapRef.current);
       poiMarkerRefs.current.push(marker);
 
       kakao.maps.event.addListener(marker, "click", () => {
+        // 이전 선택 마커 원복
+        if (selectedMarkerRef.current && selectedMarkerRef.current !== marker && selectedMarkerRef.current.setImage) {
+          selectedMarkerRef.current.setImage(normalImg);
+        }
+        // 현재 마커 강조
+        if (marker.setImage) marker.setImage(selectedImg);
+        selectedMarkerRef.current = marker;
+
         onMarkerClick?.(poi);
       });
     }
@@ -336,6 +364,7 @@ export default function KakaoMap({
     return () => {
       poiMarkerRefs.current.forEach((m) => m.setMap(null));
       poiMarkerRefs.current = [];
+      selectedMarkerRef.current = null;
     };
   }, [isReady, poiMarkers, onMarkerClick]);
 
