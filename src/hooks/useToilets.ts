@@ -46,7 +46,7 @@ export function useToilets({ debounceMs = 250, onError, onSuccess }: Options = {
           onSuccess?.(data);
         } catch (e) {
           // Abort는 조용히 무시
-          // @ts-expect-error
+
           if (e?.name !== "AbortError") {
             onError?.(e);
             console.warn("toilets fetch failed", e);

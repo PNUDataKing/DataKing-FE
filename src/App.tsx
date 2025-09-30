@@ -50,7 +50,7 @@ function App() {
         useCurrentLocation
         center={{ lat: 35.2313, lng: 129.0845 }}
         fallbackCenter={{ lat: 35.2313, lng: 129.0845 }}
-        poiMarkers={nurseries}
+        poiMarkers={toilets}
         onBoundsChange={handleBoundsChange}
         onMarkerClick={handleMarkerClick}
         onGeolocationError={(e: GeolocationPositionError | Error) => {
