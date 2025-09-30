@@ -16,9 +16,6 @@ function App() {
           console.warn("geo error", code, message);
         }}
       />
-    <div className="relative w-screen h-screen">
-      <KakaoMap useCurrentLocation fallbackCenter={undefined} onGeolocationError={(e) => console.warn("geo error", e?.code, e?.message || e)} />
-      <TopBar />
     </div>
   );
 }

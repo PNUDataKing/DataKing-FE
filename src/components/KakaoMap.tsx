@@ -23,6 +23,7 @@ interface KakaoMarkerOptions {
 }
 interface KakaoMarker {
   setMap: (map: KakaoMap | null) => void;
+  setImage?: (image: unknown) => void;
 }
 interface KakaoMarkerConstructor {
   new (options: KakaoMarkerOptions): KakaoMarker;
@@ -149,6 +150,22 @@ export default function KakaoMap({
     const src = `data:image/svg+xml;charset=UTF-8,${svg}`;
     const size = new kakao.maps.Size(12, 12);
     const offset = new kakao.maps.Point(6, 6);
+    return new kakao.maps.MarkerImage(src, size, { offset });
+  }
+
+  function createBlueDotImage(kakao: KakaoNamespace, sizePx = 18) {
+    const r = Math.round(sizePx / 2 - 2);
+    const c = Math.round(sizePx / 2);
+    const strokeW = Math.max(2, Math.round(sizePx * 0.1));
+    const svg = encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${sizePx}" height="${sizePx}" viewBox="0 0 ${sizePx} ${sizePx}">
+         <circle cx="${c}" cy="${c}" r="${r}" fill="#3b82f6" />
+         <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#ffffff" stroke-width="${strokeW}" />
+       </svg>`
+    );
+    const src = `data:image/svg+xml;charset=UTF-8,${svg}`;
+    const size = new kakao.maps.Size(sizePx, sizePx);
+    const offset = new kakao.maps.Point(c, c);
     return new kakao.maps.MarkerImage(src, size, { offset });
   }
 
@@ -325,6 +342,7 @@ export default function KakaoMap({
       const neLng = ne.getLng ? ne.getLng() : undefined;
       if ([swLat, swLng, neLat, neLng].some((v) => typeof v !== "number")) return;
 
+      // # 여기서 화장실 가져오고 있사요...
       const url = new URL("/api/toilets", window.location.origin);
       url.searchParams.set("swLat", String(swLat));
       url.searchParams.set("swLng", String(swLng));
@@ -347,6 +365,32 @@ export default function KakaoMap({
         if (contentType.includes("application/json")) {
           const data = await res.json();
           console.log("bounds fetch json", { swLat, swLng, neLat, neLng, data });
+
+          // Render API results as markers on the map
+          if (Array.isArray(data) && mapRef.current && window.kakao && window.kakao.maps) {
+            const kakao = window.kakao;
+            // Clear existing POI markers
+            poiMarkerRefs.current.forEach((m) => m.setMap(null));
+            poiMarkerRefs.current = [];
+
+            for (const item of data) {
+              const lat = item.lat ?? item.latitude ?? item.y;
+              const lng = item.lng ?? item.longitude ?? item.x;
+              if (typeof lat !== "number" || typeof lng !== "number") continue;
+              const title = item.name ?? item.title ?? item.place_name ?? "시설";
+              const normalImg = createBlueDotImage(kakao, 18);
+              const hoverImg = createBlueDotImage(kakao, 22);
+              const marker = new kakao.maps.Marker({ position: new kakao.maps.LatLng(lat, lng), title, image: normalImg });
+              marker.setMap(mapRef.current);
+              poiMarkerRefs.current.push(marker);
+
+              // Hover grow effect
+              if (marker.setImage) {
+                kakao.maps.event.addListener(marker, "mouseover", () => marker.setImage!(hoverImg));
+                kakao.maps.event.addListener(marker, "mouseout", () => marker.setImage!(normalImg));
+              }
+            }
+          }
         } else {
           const text = await res.text();
           console.log("bounds fetch text", { swLat, swLng, neLat, neLng, text });
